@@ -15,7 +15,7 @@ Presentaciones interactivas sobre Inteligencia Artificial con grabación de pant
 
 ```bash
 # Clonar o descargar el repositorio
-git clone <url-del-repo>
+git clone https://github.com/carlosDAC2020/VerbaNexAI-Videos.git
 cd VerbaNexAI-Videos
 ```
 
@@ -151,6 +151,33 @@ Cada presentación tiene un botón **⏺ Grabar** integrado.
 | Carpeta | Tema |
 |---------|------|
 | `react-prompting` | Prompting ReAct — Reasoning + Acting in Language Models |
+
+---
+
+## Capturas de pantalla
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/Home.png" width="400" alt="Página de inicio"><br>
+      <sub>Página de inicio</sub>
+    </td>
+    <td align="center">
+      <img src="docs/menu%20de%20grabacion.png" width="400" alt="Menú de grabación"><br>
+      <sub>Menú de grabación</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/presentacion.png" width="400" alt="Vista de presentación"><br>
+      <sub>Vista de presentación</sub>
+    </td>
+    <td align="center">
+      <img src="docs/presenacion_1.png" width="400" alt="Vista de presentación (slide)"><br>
+      <sub>Vista de presentación (slide)</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
