@@ -1,0 +1,16 @@
+# Grabaciones de video (pueden ser muy pesadas)
+*/media/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp

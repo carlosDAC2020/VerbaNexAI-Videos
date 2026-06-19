@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompting ReAct — VerbaNexAI Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:       #0C2D6B;
+      --navy-dark:  #071E4A;
+      --navy-mid:   #0F3880;
+      --gold:       #C9A020;
+      --gold-light: #E5BD4A;
+      --white:      #FFFFFF;
+      --off-white:  #F4F6FA;
+      --gray-bg:    #ECEEF3;
+      --text-dark:  #0C2D6B;
+      --text-mid:   #4A5568;
+      --text-light: #718096;
+      --font:       'Inter', 'Segoe UI', sans-serif;
+      --mono:       'JetBrains Mono', 'Fira Code', monospace;
+
+      /* colores componentes ReAct */
+      --c-thought:  #F6C90E;
+      --c-action:   #56CCF2;
+      --c-input:    #9DECF9;
+      --c-obs:      #6FCF97;
+      --c-final:    #F2994A;
+      --c-system:   #A0AEC0;
+      --c-task:     #E8B4F8;
+    }
+
+    html, body { width:100%; height:100%; background:#1a1a2e; font-family:var(--font); overflow:hidden; }
+
+    #viewer { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+
+    #stage {
+      position:relative;
+      width: min(100vw, calc(100vh * 16/9));
+      aspect-ratio:16/9;
+      overflow:hidden;
+      box-shadow:0 8px 40px rgba(0,0,0,.6);
+    }
+
+    .slide { position:absolute; inset:0; display:none; width:100%; height:100%; font-family:var(--font); overflow:hidden; }
+    .slide.active { display:flex; }
+
+    .footer {
+      position:absolute; bottom:0; left:0; right:0; height:4.5%;
+      background:var(--navy); display:flex; align-items:center; padding:0 2%;
+    }
+    .footer span { color:rgba(255,255,255,.75); font-size:clamp(7px,1.1vw,11px); letter-spacing:.02em; }
+
+    .slide-header {
+      position:absolute; top:0; left:0; right:0;
+      background:var(--navy); height:16%;
+      display:flex; align-items:center; padding:0 3%;
+    }
+    .slide-header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:3px; background:var(--gold); }
+    .slide-header h2 { color:var(--white); font-size:clamp(14px,2.7vw,27px); font-weight:700; }
+
+    /* ═══════════════════════════════════════
+       S1 — PORTADA
+    ═══════════════════════════════════════ */
+    #s1 { flex-direction:row; }
+    .s1-left {
+      width:35%; background:var(--navy);
+      display:flex; flex-direction:column; align-items:flex-start;
+      justify-content:space-between;
+      padding:6% 6% 6% 7%; position:relative;
+    }
+    .s1-left::after { content:''; position:absolute; right:0; top:0; bottom:0; width:4px; background:var(--gold); }
+    .s1-top { display:flex; flex-direction:column; align-items:flex-start; gap:0; }
+    .logo-brain { width:clamp(46px,9.5vw,76px); margin-bottom:4%; display:block; }
+    .brand-name { color:var(--gold); font-size:clamp(11px,2vw,18px); font-weight:700; letter-spacing:.04em; margin-bottom:2%; }
+    .brand-uni  { color:rgba(255,255,255,.75); font-size:clamp(8px,1.25vw,13px); line-height:1.5; margin-bottom:0; }
+    .gold-rule  { width:30%; height:2px; background:var(--gold); margin:0; }
+    .tags-list  { display:flex; flex-direction:column; gap:0; width:100%; justify-content:flex-end; }
+    .tag {
+      background:rgba(255,255,255,.07); border:1px solid rgba(201,160,32,.35);
+      border-radius:3px; padding:2% 5%; margin-bottom:2%;
+      color:var(--gold-light); font-size:clamp(7px,1.15vw,12px); font-weight:600; letter-spacing:.07em;
+    }
+    .tag:last-child { margin-bottom:0; }
+    .s1-right { width:65%; background:var(--white); display:flex; flex-direction:column; justify-content:center; padding:6% 7% 12% 7%; }
+    .s1-main-title { color:var(--navy); font-size:clamp(28px,7.5vw,72px); font-weight:800; line-height:1.05; margin-bottom:3%; }
+    .s1-gold-rule  { width:12%; height:3px; background:var(--gold); margin-bottom:4%; }
+    .s1-subtitle   { color:var(--text-dark); font-size:clamp(10px,1.9vw,18px); line-height:1.4; margin-bottom:4%; }
+    .s1-author     { color:var(--text-light); font-size:clamp(8px,1.3vw,13px); }
+
+    /* ═══════════════════════════════════════
+       S2 — TABLA DE CONTENIDO
+    ═══════════════════════════════════════ */
+    #s2 { flex-direction:column; }
+    .toc-grid {
+      display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(3,1fr);
+      gap:2.5% 3%; height:100%;
+    }
+    .toc-card {
+      background:var(--off-white); border:1px solid #dde3ee; border-radius:8px;
+      display:flex; align-items:center; gap:4%; padding:0 4%;
+    }
+    .toc-num {
+      min-width:clamp(24px,5vw,42px); height:clamp(24px,5vw,42px);
+      background:var(--gold); border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      color:var(--white); font-size:clamp(10px,1.8vw,17px); font-weight:700; flex-shrink:0;
+    }
+    .toc-text h3 { color:var(--navy); font-size:clamp(9px,1.5vw,14px); font-weight:700; margin-bottom:1px; }
+    .toc-text p  { color:var(--text-mid); font-size:clamp(7px,1.1vw,11px); }
+    #s2 .slide-body { position:absolute; top:16%; left:0; right:0; bottom:4.5%; background:var(--white); padding:3% 4% 2.5%; display:flex; flex-direction:column; }
+
+    /* ═══════════════════════════════════════
+       S3 — ¿QUÉ ES REACT?  (rediseñado)
+       Left: visual RE·ACT branding
+       Right: 3 items compactos apilados
+    ═══════════════════════════════════════ */
+    #s3 { flex-direction:column; }
+    #s3 .slide-body {
+      position:absolute; top:16%; left:0; right:0; bottom:4.5%;
+      background:var(--white);
+      display:flex; flex-direction:row;
+      padding:0; gap:0;
+    }
+
+    /* Panel izquierdo navy */
+    .s3-left {
+      width:38%;
+      background:var(--navy);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:4% 5%;
+      gap:0;
+      border-right:3px solid var(--gold);
+      flex-shrink:0;
+    }
+    .react-logo-big {
+      display:flex; align-items:center; justify-content:center;
+      gap:2%;
+      margin-bottom:5%;
+    }
+    .react-re {
+      font-size:clamp(28px,6.5vw,60px); font-weight:800;
+      color:var(--gold); letter-spacing:-.02em; line-height:1;
+    }
+    .react-dot {
+      width:clamp(6px,1.2vw,11px); height:clamp(6px,1.2vw,11px);
+      background:rgba(255,255,255,.35); border-radius:50%; flex-shrink:0;
+    }
+    .react-act {
+      font-size:clamp(28px,6.5vw,60px); font-weight:800;
+      color:var(--white); letter-spacing:-.02em; line-height:1;
+    }
+    .react-expand {
+      display:flex; gap:3%;
+      margin-bottom:6%;
+    }
+    .react-pill {
+      background:rgba(255,255,255,.1); border:1px solid rgba(201,160,32,.45);
+      border-radius:4px; padding:1.5% 5%;
+      font-size:clamp(7px,1.1vw,10px); font-weight:700; letter-spacing:.08em;
+    }
+    .react-pill.re-pill  { color:var(--gold-light); }
+    .react-pill.act-pill { color:rgba(255,255,255,.75); }
+    .react-desc {
+      color:rgba(255,255,255,.5); font-size:clamp(7px,1.1vw,10.5px);
+      text-align:center; line-height:1.5;
+      border-top:1px solid rgba(255,255,255,.1);
+      padding-top:5%; margin-top:2%;
+      font-style:italic;
+    }
+
+    /* Panel derecho — 3 items */
+    .s3-right {
+      flex:1;
+      display:flex; flex-direction:column;
+      padding:3% 4%;
+      gap:3%;
+      justify-content:space-between;
+    }
+    .s3-item {
+      flex:1;
+      display:flex; align-items:center;
+      gap:3%;
+      background:var(--off-white);
+      border-radius:8px;
+      border-left:4px solid var(--gray-bg);
+      padding:0 3%;
+      transition:border-color .2s;
+    }
+    .s3-item.item-featured { background:#fffbef; border-left-color:var(--gold); }
+    .s3-item-icon {
+      width:clamp(32px,5.5vw,46px); height:clamp(32px,5.5vw,46px);
+      border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:clamp(14px,2.4vw,21px);
+    }
+    .s3-item-icon.ic-concept  { background:rgba(12,45,107,.12); }
+    .s3-item-icon.ic-diff     { background:rgba(201,160,32,.18); }
+    .s3-item-icon.ic-benefit  { background:rgba(111,207,151,.2); }
+    .s3-item-body { flex:1; display:flex; flex-direction:column; gap:3%; }
+    .s3-item-tag {
+      display:inline-block;
+      font-size:clamp(6px,.9vw,9px); font-weight:800; letter-spacing:.1em;
+      padding:.8% 3.5%; border-radius:3px; align-self:flex-start;
+    }
+    .s3-item-tag.t-concept { background:var(--navy); color:var(--gold-light); }
+    .s3-item-tag.t-diff    { background:var(--gold); color:var(--navy-dark); }
+    .s3-item-tag.t-benefit { background:#276749; color:#C6F6D5; }
+    .s3-item-body h3 { color:var(--navy); font-size:clamp(10px,1.65vw,15px); font-weight:700; }
+    .s3-item-body p  { color:var(--text-mid); font-size:clamp(8px,1.25vw,12px); line-height:1.5; }
+    .s3-item-body p strong { color:var(--navy); }
+
+    /* ═══════════════════════════════════════
+       S4 — ESTRUCTURA DEL PROMPT  (rediseñado)
+       Muestra el flujo como un "prompt real"
+       con etiquetas de componente visibles
+    ═══════════════════════════════════════ */
+    #s4 { flex-direction:column; }
+    #s4 .slide-body {
+      position:absolute; top:16%; left:0; right:0; bottom:4.5%;
+      background:var(--white);
+      display:flex; flex-direction:row;
+      padding:0; gap:0;
+    }
+
+    /* Columna izquierda: flujo visual lineal */
+    .s4-flow {
+      width:55%;
+      display:flex; flex-direction:column;
+      padding:3% 0 2% 3.5%;
+      gap:0;
+      border-right:2px solid var(--gray-bg);
+      overflow:hidden;
+    }
+    .flow-intro {
+      color:var(--text-mid); font-size:clamp(7px,1.1vw,10.5px);
+      margin-bottom:2.5%; padding-right:4%;
+    }
+    .flow-step {
+      display:flex; flex-direction:column;
+      position:relative;
+    }
+    .flow-row {
+      display:flex; align-items:stretch; gap:0;
+    }
+    /* línea vertical conectora */
+    .flow-connector {
+      width:3px; flex-shrink:0;
+      background:var(--gray-bg);
+      margin-left:calc(clamp(12px,2.5vw,21px) - 1.5px);
+    }
+    .flow-connector.c-thought  { background:var(--c-thought); }
+    .flow-connector.c-action   { background:var(--c-action); }
+    .flow-connector.c-input    { background:var(--c-input); }
+    .flow-connector.c-obs      { background:var(--c-obs); }
+    .flow-connector.c-final    { background:var(--c-final); }
+
+    .flow-node {
+      display:flex; align-items:flex-start;
+      gap:2.5%;
+      padding:1.8% 3% 1.8% 2%;
+      flex:1;
+    }
+    .flow-dot {
+      width:clamp(12px,2.2vw,19px); height:clamp(12px,2.2vw,19px);
+      border-radius:50%; flex-shrink:0; margin-top:.15em;
+      border:2.5px solid var(--gray-bg);
+      background:var(--white);
+    }
+    .flow-dot.d-thought { border-color:var(--c-thought); background:var(--c-thought); }
+    .flow-dot.d-action  { border-color:var(--c-action);  background:var(--c-action);  }
+    .flow-dot.d-input   { border-color:var(--c-input);   background:var(--c-input);   }
+    .flow-dot.d-obs     { border-color:var(--c-obs);     background:var(--c-obs);     }
+    .flow-dot.d-final   { border-color:var(--c-final);   background:var(--c-final);   }
+    .flow-dot.d-q       { border-color:var(--c-task);    background:var(--c-task);    }
+
+    .flow-text { flex:1; display:flex; flex-direction:column; gap:2%; }
+    .flow-label {
+      font-size:clamp(8px,1.35vw,12.5px); font-weight:700; font-family:var(--mono);
+    }
+    .flow-label.l-thought { color:var(--c-thought); }
+    .flow-label.l-action  { color:var(--c-action);  }
+    .flow-label.l-input   { color:var(--c-input);   filter:brightness(.75); }
+    .flow-label.l-obs     { color:var(--c-obs);     }
+    .flow-label.l-final   { color:var(--c-final);   }
+    .flow-label.l-q       { color:var(--c-task);    }
+
+    .flow-desc {
+      color:var(--text-mid); font-size:clamp(7px,1.1vw,10.5px); line-height:1.45;
+    }
+
+    .loop-badge {
+      display:flex; align-items:center; gap:2%;
+      background:rgba(201,160,32,.1);
+      border:1px dashed rgba(201,160,32,.5);
+      border-radius:5px;
+      padding:1.2% 3%;
+      margin:1% 2% 0 3%;
+      color:var(--gold);
+      font-size:clamp(6px,1vw,10px); font-weight:600;
+    }
+
+    /* Columna derecha: leyenda + pseudocódigo */
+    .s4-legend {
+      flex:1;
+      display:flex; flex-direction:column;
+      padding:3% 3.5% 2%;
+      gap:3%;
+      background:var(--off-white);
+    }
+    .legend-title {
+      color:var(--navy); font-size:clamp(8px,1.3vw,12px); font-weight:700;
+      letter-spacing:.03em; text-transform:uppercase;
+      border-bottom:2px solid var(--gray-bg); padding-bottom:2%;
+    }
+    .legend-items { display:flex; flex-direction:column; gap:2%; flex:1; }
+    .legend-item  { display:flex; align-items:center; gap:3%; }
+    .legend-dot   { width:clamp(8px,1.5vw,13px); height:clamp(8px,1.5vw,13px); border-radius:50%; flex-shrink:0; }
+    .legend-name  { font-family:var(--mono); font-size:clamp(7px,1.1vw,10.5px); font-weight:600; }
+    .legend-sep   { color:var(--text-light); font-size:clamp(6px,.9vw,9px); margin:0 1%; }
+    .legend-info  { color:var(--text-mid); font-size:clamp(6px,.95vw,9.5px); line-height:1.35; flex:1; }
+
+    .loop-note {
+      background:rgba(12,45,107,.07); border-radius:6px;
+      padding:3% 4%;
+      display:flex; flex-direction:column; gap:5%;
+    }
+    .loop-note-title { color:var(--navy); font-size:clamp(7px,1.1vw,10.5px); font-weight:700; }
+    .loop-note-text  { color:var(--text-mid); font-size:clamp(6px,1vw,9.5px); line-height:1.5; }
+
+    /* ═══════════════════════════════════════
+       S5 — EJEMPLOS  (prompt copiable)
+    ═══════════════════════════════════════ */
+    #s5 { flex-direction:column; }
+    #s5 .slide-body {
+      position:absolute; top:16%; left:0; right:0; bottom:4.5%;
+      background:#0D1117;
+      display:flex; flex-direction:row;
+      padding:0; gap:0;
+    }
+
+    /* Bloque izquierdo: prompt con colores */
+    .prompt-block {
+      flex:1.65;
+      display:flex; flex-direction:column;
+      border-right:1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .prompt-topbar {
+      display:flex; align-items:center; justify-content:space-between;
+      background:#161B22;
+      padding:1.5% 3%;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      flex-shrink:0;
+    }
+    .prompt-title-bar {
+      color:rgba(255,255,255,.5); font-size:clamp(7px,1.1vw,10.5px);
+      font-family:var(--mono); display:flex; align-items:center; gap:2%;
+    }
+    .dot-red   { width:8px;height:8px;border-radius:50%;background:#FF5F57;flex-shrink:0; }
+    .dot-yel   { width:8px;height:8px;border-radius:50%;background:#FFBD2E;flex-shrink:0; }
+    .dot-grn   { width:8px;height:8px;border-radius:50%;background:#28C840;flex-shrink:0; }
+    .copy-btn {
+      background:rgba(201,160,32,.2); border:1px solid rgba(201,160,32,.5);
+      color:var(--gold-light); font-size:clamp(6px,1vw,9.5px); font-weight:700;
+      padding:.8% 3%; border-radius:4px; cursor:pointer;
+      font-family:var(--font); letter-spacing:.04em;
+      transition:background .15s;
+    }
+    .copy-btn:hover  { background:rgba(201,160,32,.35); }
+    .copy-btn.copied { background:rgba(111,207,151,.2); border-color:#6FCF97; color:#6FCF97; }
+
+    .claude-btn {
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.3);
+      color:rgba(255,255,255,.85); font-size:clamp(6px,1vw,9.5px); font-weight:700;
+      padding:.8% 3%; border-radius:4px; cursor:pointer;
+      font-family:var(--font); letter-spacing:.04em;
+      text-decoration:none; display:inline-flex; align-items:center; gap:5%;
+      transition:background .15s, border-color .15s;
+    }
+    .claude-btn:hover { background:rgba(255,255,255,.2); border-color:rgba(255,255,255,.5); }
+
+    .prompt-code {
+      flex:1; overflow:auto;
+      padding:2.5% 3.5%;
+      font-family:var(--mono);
+      font-size:clamp(7.5px,1.25vw,12px);
+      line-height:1.75;
+      color:rgba(255,255,255,.85);
+      white-space:pre;
+    }
+    .prompt-code::-webkit-scrollbar { width:4px; }
+    .prompt-code::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:2px; }
+
+    /* spans de color para cada componente */
+    .t-sys     { color:var(--c-system); font-style:italic; }
+    .t-thought { color:var(--c-thought); font-weight:600; }
+    .t-action  { color:var(--c-action);  font-weight:600; }
+    .t-ainput  { color:var(--c-input); }
+    .t-obs     { color:var(--c-obs);   font-style:italic; }
+    .t-final   { color:var(--c-final); font-weight:600; }
+    .t-task    { color:var(--c-task);  }
+    .t-tool    { color:#B39DDB; }
+    .t-comment { color:rgba(255,255,255,.28); font-style:italic; }
+    .t-key     { color:rgba(255,255,255,.5); }
+
+    /* Columna derecha: leyenda */
+    .legend-panel {
+      width:30%;
+      display:flex; flex-direction:column;
+      padding:3% 3%;
+      gap:2.5%;
+      background:#0D1117;
+    }
+    .leg-title {
+      color:rgba(255,255,255,.4); font-size:clamp(6px,.9vw,9px);
+      font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+      border-bottom:1px solid rgba(255,255,255,.08); padding-bottom:2%;
+      margin-bottom:1%;
+    }
+    .leg-row {
+      display:flex; align-items:flex-start; gap:3%;
+      padding:1.5% 2.5%;
+      border-radius:5px;
+      background:rgba(255,255,255,.03);
+      border-left:3px solid transparent;
+    }
+    .leg-dot { width:clamp(7px,1.2vw,10px); height:clamp(7px,1.2vw,10px); border-radius:50%; flex-shrink:0; margin-top:.2em; }
+    .leg-text { flex:1; }
+    .leg-name { font-family:var(--mono); font-size:clamp(7px,1.1vw,10.5px); font-weight:600; margin-bottom:2%; }
+    .leg-desc { color:rgba(255,255,255,.4); font-size:clamp(6px,.95vw,9px); line-height:1.45; }
+
+    .tools-box {
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+      border-radius:6px; padding:3% 3.5%;
+      display:flex; flex-direction:column; gap:3%;
+      margin-top:auto;
+    }
+    .tools-box-title { color:rgba(255,255,255,.4); font-size:clamp(6px,.9vw,9px); font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .tool-chip {
+      display:flex; align-items:center; gap:3%;
+      color:var(--c-tool,#B39DDB);
+      font-family:var(--mono); font-size:clamp(6px,.95vw,9px);
+    }
+    .tool-chip::before { content:'⚙'; font-size:.9em; opacity:.6; }
+    .tool-desc { color:rgba(255,255,255,.3); font-size:clamp(5px,.85vw,8.5px); margin-left:auto; }
+
+    /* ── CONTROLES ── */
+    #controls { display:flex; align-items:center; gap:16px; }
+    .btn {
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.25);
+      color:white; cursor:pointer; border-radius:8px; padding:7px 18px;
+      font-family:var(--font); font-size:13px; font-weight:500;
+      transition:background .15s; user-select:none;
+    }
+    .btn:hover  { background:rgba(255,255,255,.2); }
+    .btn:active { background:rgba(255,255,255,.3); }
+    .btn:disabled { opacity:.3; cursor:default; }
+    #counter { color:rgba(255,255,255,.6); font-size:13px; min-width:60px; text-align:center; }
+    .btn-fs { background:rgba(201,160,32,.2); border-color:rgba(201,160,32,.5); }
+    .btn-fs:hover { background:rgba(201,160,32,.35); }
+    .btn-home { padding:7px 14px; }
+
+    :fullscreen  #controls,       :-webkit-full-screen #controls { display:none; }
+    :fullscreen  #viewer,         :-webkit-full-screen #viewer   { background:#000; gap:0; }
+    :fullscreen  #stage,          :-webkit-full-screen #stage    { width:100vw; height:100vh; aspect-ratio:unset; box-shadow:none; }
+
+    /* ── GRABACIÓN ── */
+    #rec-wrap { display:flex; align-items:center; gap:10px; }
+    .btn-rec { background:rgba(220,50,50,.18); border-color:rgba(220,50,50,.45); color:#ff9090; min-width:118px; }
+    .btn-rec:hover { background:rgba(220,50,50,.32); }
+    .btn-rec.recording { background:rgba(220,50,50,.38); border-color:#e05050; color:#ffbbbb; }
+    .rec-dot { display:inline-block; width:8px; height:8px; background:currentColor; border-radius:50%; margin-right:6px; vertical-align:middle; }
+    .btn-rec.recording .rec-dot { animation:blink-rec 1.1s infinite; }
+    @keyframes blink-rec { 0%,100%{opacity:1} 50%{opacity:.15} }
+    #rec-timer { color:rgba(255,255,255,.5); font-size:12px; font-family:var(--mono); display:none; min-width:36px; }
+
+    /* Flotante en pantalla completa */
+    :fullscreen  #rec-wrap, :-webkit-full-screen #rec-wrap {
+      position:fixed; bottom:18px; right:18px; z-index:9999;
+      background:rgba(0,0,0,.58); backdrop-filter:blur(8px);
+      border-radius:10px; padding:8px 14px; box-shadow:0 2px 12px rgba(0,0,0,.4);
+    }
+
+    /* Toast notificación */
+    #rec-toast {
+      position:fixed; top:24px; left:50%; transform:translateX(-50%) translateY(-70px);
+      background:#6FCF97; color:#071E4A; padding:9px 24px; border-radius:8px;
+      font-weight:700; font-size:13px; z-index:99999; pointer-events:none;
+      transition:transform .38s cubic-bezier(.34,1.56,.64,1), opacity .38s;
+      opacity:0; white-space:nowrap;
+    }
+    #rec-toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    #rec-toast.error { background:#FC8181; }
+
+    /* Modal selección modo grabación */
+    #rec-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); z-index:99998; align-items:center; justify-content:center; }
+    #rec-modal.open { display:flex; }
+    .rec-mbox { background:#0E1E3B; border:1px solid rgba(201,160,32,.35); border-radius:14px; padding:26px 28px; max-width:370px; width:92%; box-shadow:0 10px 40px rgba(0,0,0,.6); }
+    .rec-mbox h3 { color:var(--white); font-size:15px; font-weight:700; margin-bottom:4px; }
+    .rec-mbox p.sub { color:rgba(255,255,255,.42); font-size:11.5px; margin-bottom:18px; line-height:1.5; }
+    .rec-opt { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:9px; padding:12px 14px; cursor:pointer; margin-bottom:10px; transition:background .15s,border-color .15s; }
+    .rec-opt:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); }
+    .rec-opt.featured { background:rgba(201,160,32,.09); border-color:rgba(201,160,32,.45); }
+    .rec-opt.featured:hover { background:rgba(201,160,32,.18); }
+    .rec-opt .ot { color:var(--white); font-size:13px; font-weight:600; margin-bottom:3px; }
+    .rec-opt .od { color:rgba(255,255,255,.42); font-size:11px; line-height:1.5; }
+    .rec-cancel { background:transparent; border:none; color:rgba(255,255,255,.3); font-size:12px; cursor:pointer; padding:6px; font-family:var(--font); width:100%; text-align:center; margin-top:2px; }
+    .rec-cancel:hover { color:rgba(255,255,255,.6); }
+  </style>
+</head>
+<body>
+<div id="viewer">
+<div id="stage">
+
+<!-- ══════════════════════════════════════════
+     S1 — PORTADA
+══════════════════════════════════════════ -->
+<div class="slide active" id="s1">
+  <div class="s1-left">
+    <div class="s1-top">
+      <svg class="logo-brain" viewBox="0 0 100 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Hemisferio izquierdo -->
+        <path d="M50,17 C48,12 44,9 40,9 Q36,9 33,11 Q28,13 24,11 C18,9 12,13 9,20 C6,27 6,37 8,47 C10,56 16,63 24,67 C30,70 38,71 44,68 C47,67 49,64 50,61 Z" fill="#C9A020"/>
+        <!-- Hemisferio derecho -->
+        <path d="M50,17 C52,12 56,9 60,9 Q64,9 67,11 Q72,13 76,11 C82,9 88,13 91,20 C94,27 94,37 92,47 C90,56 84,63 76,67 C70,70 62,71 56,68 C53,67 51,64 50,61 Z" fill="#C9A020"/>
+        <!-- Tallo cerebral -->
+        <path d="M44,66 C43,71 43,77 46,79 C48,80 52,80 54,79 C57,77 57,71 56,66 Z" fill="#C9A020"/>
+        <!-- Fisura central (hemisferios) -->
+        <line x1="50" y1="11" x2="50" y2="63" stroke="#071E4A" stroke-width="2.2" opacity="0.38"/>
+        <!-- Giro izq – superior -->
+        <path d="M13,28 C18,23 27,24 31,29" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+        <!-- Giro izq – medio -->
+        <path d="M10,41 C17,37 27,38 30,44" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+        <!-- Giro izq – inferior -->
+        <path d="M13,54 C19,51 28,52 31,57" stroke="#071E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.33"/>
+        <!-- Giro der – superior (espejo) -->
+        <path d="M87,28 C82,23 73,24 69,29" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+        <!-- Giro der – medio (espejo) -->
+        <path d="M90,41 C83,37 73,38 70,44" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+        <!-- Giro der – inferior (espejo) -->
+        <path d="M87,54 C81,51 72,52 69,57" stroke="#071E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.33"/>
+      </svg>
+      <div class="brand-name">VerbaNexAI Lab</div>
+      <div class="brand-uni">Universidad Tecnológica<br>de Bolívar</div>
+    </div>
+    <div class="gold-rule"></div>
+    <div class="tags-list">
+      <div class="tag">NLP</div>
+      <div class="tag">Applied AI</div>
+      <div class="tag">Data Representation</div>
+      <div class="tag">Prompting</div>
+      <div class="tag">ReAct</div>
+    </div>
+  </div>
+  <div class="s1-right">
+    <div class="s1-main-title">Prompting<br>ReAct</div>
+    <div class="s1-gold-rule"></div>
+    <div class="s1-subtitle">Combinando Razonamiento y Acción<br>en Modelos de Lenguaje.</div>
+    <div class="s1-author">Carlos Agamez &nbsp;·&nbsp; 2026</div>
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S2 — TABLA DE CONTENIDO
+══════════════════════════════════════════ -->
+<div class="slide" id="s2">
+  <div class="slide-header"><h2>Contenido</h2></div>
+  <div class="slide-body">
+    <div class="toc-grid">
+      <div class="toc-card"><div class="toc-num">1</div><div class="toc-text"><h3>¿Qué es ReAct?</h3><p>Concepto, diferencial y beneficio</p></div></div>
+      <div class="toc-card"><div class="toc-num">4</div><div class="toc-text"><h3>Ejemplos en vivo</h3><p>Implementación con Claude</p></div></div>
+      <div class="toc-card"><div class="toc-num">2</div><div class="toc-text"><h3>Estructura del Prompt</h3><p>Thought · Action · Observation</p></div></div>
+      <div class="toc-card"><div class="toc-num">5</div><div class="toc-text"><h3>Casos de uso reales</h3><p>Aplicaciones prácticas</p></div></div>
+      <div class="toc-card"><div class="toc-num">3</div><div class="toc-text"><h3>El ciclo completo</h3><p>Cómo fluye la traza ReAct</p></div></div>
+      <div class="toc-card"><div class="toc-num">6</div><div class="toc-text"><h3>Resultados y conclusiones</h3><p>¿Vale la pena usarlo?</p></div></div>
+    </div>
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S3 — ORIGEN Y PROBLEMÁTICA
+══════════════════════════════════════════ -->
+<div class="slide" id="s-origen">
+  <div class="slide-header"><h2>Origen y Problemática</h2></div>
+  <div class="slide-body" style="position:absolute;top:16%;left:0;right:0;bottom:4.5%;background:var(--white);display:flex;flex-direction:row;padding:0;gap:0;">
+
+    <!-- Panel izquierdo: timeline -->
+    <div style="width:36%;background:var(--navy);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:5% 6%;gap:0;border-right:3px solid var(--gold);flex-shrink:0;">
+      <div style="color:var(--gold);font-size:clamp(6px,.95vw,9px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3%;">Publicación</div>
+      <div style="color:var(--white);font-size:clamp(22px,5vw,46px);font-weight:800;line-height:1;margin-bottom:2%;">2022</div>
+      <div style="width:30%;height:2px;background:var(--gold);margin-bottom:5%;"></div>
+
+      <div style="display:flex;flex-direction:column;gap:4%;width:100%;">
+        <div style="display:flex;align-items:flex-start;gap:4%;">
+          <div style="width:clamp(7px,1.2vw,10px);height:clamp(7px,1.2vw,10px);background:var(--gold);border-radius:50%;flex-shrink:0;margin-top:.3em;"></div>
+          <div>
+            <div style="color:var(--gold-light);font-size:clamp(8px,1.3vw,12px);font-weight:700;margin-bottom:1%;">Autores</div>
+            <div style="color:rgba(255,255,255,.75);font-size:clamp(7px,1.1vw,10.5px);line-height:1.5;">Shunyu Yao et al.<br>Princeton University &amp;<br>Google Research</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:4%;">
+          <div style="width:clamp(7px,1.2vw,10px);height:clamp(7px,1.2vw,10px);background:var(--gold);border-radius:50%;flex-shrink:0;margin-top:.3em;"></div>
+          <div>
+            <div style="color:var(--gold-light);font-size:clamp(8px,1.3vw,12px);font-weight:700;margin-bottom:1%;">Paper</div>
+            <div style="color:rgba(255,255,255,.75);font-size:clamp(7px,1.1vw,10.5px);line-height:1.5;font-style:italic;">"ReAct: Synergizing Reasoning and Acting in Language Models"</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:4%;">
+          <div style="width:clamp(7px,1.2vw,10px);height:clamp(7px,1.2vw,10px);background:var(--gold);border-radius:50%;flex-shrink:0;margin-top:.3em;"></div>
+          <div>
+            <div style="color:var(--gold-light);font-size:clamp(8px,1.3vw,12px);font-weight:700;margin-bottom:1%;">Referencia</div>
+            <div style="color:rgba(255,255,255,.55);font-size:clamp(7px,1.05vw,10px);font-family:var(--mono);">arXiv:2210.03629</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;background:rgba(255,255,255,.06);border:1px solid rgba(201,160,32,.3);border-radius:6px;padding:3% 4%;width:100%;">
+        <div style="color:rgba(255,255,255,.4);font-size:clamp(5px,.85vw,8.5px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2%;">Contexto</div>
+        <div style="color:rgba(255,255,255,.6);font-size:clamp(6px,1vw,9.5px);line-height:1.5;">GPT-3 y PaLM ya existían. El reto: hacerlos más fiables y conectados al mundo real.</div>
+      </div>
+    </div>
+
+    <!-- Panel derecho: los dos problemas -->
+    <div style="flex:1;display:flex;flex-direction:column;padding:3.5% 4%;gap:3%;justify-content:center;">
+
+      <div style="color:var(--navy);font-size:clamp(9px,1.5vw,14px);font-weight:700;letter-spacing:.02em;border-bottom:2px solid var(--gray-bg);padding-bottom:2%;margin-bottom:1%;">¿Qué problema venía a resolver?</div>
+
+      <!-- Problema 1 -->
+      <div style="flex:1;display:flex;align-items:center;gap:4%;background:#fff5f5;border-radius:8px;border-left:4px solid #FC8181;padding:0 3%;">
+        <div style="width:clamp(34px,6vw,50px);height:clamp(34px,6vw,50px);background:rgba(252,129,129,.18);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:clamp(14px,2.4vw,22px);">🧠</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:3%;">
+          <div style="display:flex;align-items:center;gap:2%;">
+            <span style="background:#C53030;color:#FFF5F5;font-size:clamp(6px,.9vw,8.5px);font-weight:800;letter-spacing:.1em;padding:.6% 3%;border-radius:3px;">PROBLEMA 1 · CHAIN-OF-THOUGHT</span>
+          </div>
+          <div style="color:var(--navy);font-size:clamp(10px,1.65vw,15px);font-weight:700;">Razonaba, pero no podía actuar</div>
+          <div style="color:var(--text-mid);font-size:clamp(7.5px,1.2vw,11.5px);line-height:1.5;">CoT permitía al modelo "pensar paso a paso", pero <strong>todo surgía de sus parámetros</strong>. Sin acceso a datos externos, el modelo <strong>inventaba hechos</strong> cuando no los conocía — las famosas alucinaciones.</div>
+        </div>
+      </div>
+
+      <!-- Problema 2 -->
+      <div style="flex:1;display:flex;align-items:center;gap:4%;background:#fffaf0;border-radius:8px;border-left:4px solid var(--gold);padding:0 3%;">
+        <div style="width:clamp(34px,6vw,50px);height:clamp(34px,6vw,50px);background:rgba(201,160,32,.15);border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:clamp(14px,2.4vw,22px);">⚙️</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:3%;">
+          <div style="display:flex;align-items:center;gap:2%;">
+            <span style="background:var(--gold);color:var(--navy-dark);font-size:clamp(6px,.9vw,8.5px);font-weight:800;letter-spacing:.1em;padding:.6% 3%;border-radius:3px;">PROBLEMA 2 · MODELOS SOLO-ACCIÓN</span>
+          </div>
+          <div style="color:var(--navy);font-size:clamp(10px,1.65vw,15px);font-weight:700;">Actuaba, pero sin razonar</div>
+          <div style="color:var(--text-mid);font-size:clamp(7.5px,1.2vw,11.5px);line-height:1.5;">Los pipelines de herramientas ejecutaban acciones, pero el modelo no explicaba <strong>por qué</strong> las elegía. Sin trazabilidad, era imposible depurar errores o <strong>recuperarse si una acción fallaba</strong>.</div>
+        </div>
+      </div>
+
+      <!-- La solución -->
+      <div style="display:flex;align-items:center;gap:3%;background:var(--navy);border-radius:8px;padding:2.5% 3%;">
+        <div style="font-size:clamp(14px,2.2vw,20px);">✦</div>
+        <div style="flex:1;">
+          <div style="color:var(--gold-light);font-size:clamp(8px,1.3vw,12px);font-weight:700;margin-bottom:1%;">La propuesta de ReAct</div>
+          <div style="color:rgba(255,255,255,.75);font-size:clamp(7px,1.15vw,11px);line-height:1.5;"><strong style="color:var(--gold);">Entrelazar</strong> razonamiento y acción en un único bucle: el modelo razona, actúa, observa el resultado real y razona de nuevo — anclando cada paso a datos verificables.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S4 — ¿QUÉ ES REACT?
+══════════════════════════════════════════ -->
+<div class="slide" id="s3">
+  <div class="slide-header"><h2>¿Qué es ReAct?</h2></div>
+  <div class="slide-body">
+
+    <!-- Panel izquierdo: visual RE·ACT -->
+    <div class="s3-left">
+      <div class="react-logo-big">
+        <span class="react-re">RE</span>
+        <div class="react-dot"></div>
+        <span class="react-act">ACT</span>
+      </div>
+      <div class="react-expand">
+        <div class="react-pill re-pill">REASONING</div>
+        <div class="react-pill act-pill">ACTING</div>
+      </div>
+      <div class="react-desc">
+        Yao et al. · Princeton / Google Research · 2022<br>
+        <em>arXiv:2210.03629</em>
+      </div>
+    </div>
+
+    <!-- Panel derecho: 3 items -->
+    <div class="s3-right">
+
+      <div class="s3-item">
+        <div class="s3-item-icon ic-concept">💡</div>
+        <div class="s3-item-body">
+          <span class="s3-item-tag t-concept">CONCEPTO</span>
+          <h3>Pensar en voz alta</h3>
+          <p>Es un método que permite a la IA <strong>"pensar en voz alta"</strong> antes de ejecutar una tarea, haciendo visible su razonamiento paso a paso.</p>
+        </div>
+      </div>
+
+      <div class="s3-item item-featured">
+        <div class="s3-item-icon ic-diff">⚡</div>
+        <div class="s3-item-body">
+          <span class="s3-item-tag t-diff">EL DIFERENCIAL</span>
+          <h3>Reasoning + Acting entrelazados</h3>
+          <p>A diferencia de un prompt común, ReAct obliga al modelo a generar una <strong>traza de razonamiento</strong> seguida de una <strong>acción específica</strong> — buscar en internet, usar una calculadora, llamar una API.</p>
+        </div>
+      </div>
+
+      <div class="s3-item">
+        <div class="s3-item-icon ic-benefit">🎯</div>
+        <div class="s3-item-body">
+          <span class="s3-item-tag t-benefit">BENEFICIO</span>
+          <h3>Menos alucinaciones</h3>
+          <p>Reduce errores porque cada afirmación se ancla a una <strong>observación real</strong>. Permite resolver problemas que requieren datos externos que el modelo no tiene en sus parámetros.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S4 — ESTRUCTURA DEL PROMPT REACT
+══════════════════════════════════════════ -->
+<div class="slide" id="s4">
+  <div class="slide-header"><h2>Estructura del Prompt ReAct</h2></div>
+  <div class="slide-body">
+
+    <!-- Flujo vertical a la izquierda -->
+    <div class="s4-flow">
+      <div class="flow-intro">Cada respuesta ReAct sigue esta traza — el modelo la genera de forma iterativa hasta tener suficiente información:</div>
+
+      <!-- Pregunta -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node">
+            <div class="flow-dot d-q"></div>
+            <div class="flow-text">
+              <span class="flow-label l-q">Pregunta:</span>
+              <span class="flow-desc">El problema o tarea que el usuario quiere resolver.</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;"><div class="flow-connector c-thought" style="height:clamp(6px,1.2vw,12px);"></div></div>
+      </div>
+
+      <!-- Thought -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node">
+            <div class="flow-dot d-thought"></div>
+            <div class="flow-text">
+              <span class="flow-label l-thought">Thought:</span>
+              <span class="flow-desc">La IA razona en voz alta — explica qué necesita y por qué, antes de hacer nada.</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;"><div class="flow-connector c-action" style="height:clamp(6px,1.2vw,12px);"></div></div>
+      </div>
+
+      <!-- Action -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node">
+            <div class="flow-dot d-action"></div>
+            <div class="flow-text">
+              <span class="flow-label l-action">Action:</span>
+              <span class="flow-desc">Elige una herramienta disponible (<code style="font-size:.9em;color:var(--c-action);">search_web</code>, <code style="font-size:.9em;color:var(--c-action);">read_url</code>, <code style="font-size:.9em;color:var(--c-action);">calculator</code>…)</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;"><div class="flow-connector c-input" style="height:clamp(6px,1.2vw,12px);"></div></div>
+      </div>
+
+      <!-- Action Input -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node" style="padding-left:6%;">
+            <div class="flow-dot d-input"></div>
+            <div class="flow-text">
+              <span class="flow-label l-input">Action Input:</span>
+              <span class="flow-desc">El parámetro concreto que se le pasa a la herramienta elegida.</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;padding-left:6%;"><div class="flow-connector c-obs" style="height:clamp(6px,1.2vw,12px);"></div></div>
+      </div>
+
+      <!-- Observation -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node">
+            <div class="flow-dot d-obs"></div>
+            <div class="flow-text">
+              <span class="flow-label l-obs">Observation:</span>
+              <span class="flow-desc">El resultado real devuelto por la herramienta. Se incorpora al contexto del modelo.</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;"><div class="flow-connector c-final" style="height:clamp(6px,1.2vw,12px);"></div></div>
+      </div>
+
+      <!-- Final Answer -->
+      <div class="flow-step">
+        <div class="flow-row">
+          <div class="flow-node">
+            <div class="flow-dot d-final"></div>
+            <div class="flow-text">
+              <span class="flow-label l-final">Final Answer:</span>
+              <span class="flow-desc">La conclusión basada en todas las observaciones. Verificada con datos reales.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loop badge -->
+      <div class="loop-badge">
+        ↺ &nbsp; Los pasos <strong>Thought → Action → Observation</strong> se repiten hasta tener información suficiente
+      </div>
+    </div>
+
+    <!-- Leyenda derecha -->
+    <div class="s4-legend">
+      <div class="legend-title">Componentes del ciclo</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-task);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-task);">Pregunta</div>
+            <div class="legend-info">Entrada del usuario. Define el objetivo completo del agente.</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-thought);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-thought);">Thought</div>
+            <div class="legend-info">Razonamiento interno. El modelo planifica su siguiente paso.</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-action);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-action);">Action</div>
+            <div class="legend-info">Herramienta seleccionada para obtener información externa.</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-input);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-input);">Action Input</div>
+            <div class="legend-info">Argumento concreto enviado a la herramienta.</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-obs);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-obs);">Observation</div>
+            <div class="legend-info">Resultado real devuelto. Alimenta el siguiente Thought.</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--c-final);"></div>
+          <div style="flex:1;">
+            <div class="legend-name" style="color:var(--c-final);">Final Answer</div>
+            <div class="legend-info">Respuesta definitiva, basada en observaciones verificadas.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="loop-note">
+        <div class="loop-note-title">¿Cuántas iteraciones?</div>
+        <div class="loop-note-text">No hay límite fijo. El modelo decide cuándo tiene suficiente información para emitir la <strong>Final Answer</strong>. Cada iteración añade contexto verificado.</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S5 — EJEMPLOS EN VIVO (prompt copiable)
+══════════════════════════════════════════ -->
+<div class="slide" id="s5">
+  <div class="slide-header"><h2>Ejemplos en vivo — Prompt ReAct para Claude</h2></div>
+  <div class="slide-body">
+
+    <!-- Bloque del prompt -->
+    <div class="prompt-block">
+      <div class="prompt-topbar">
+        <div class="prompt-title-bar">
+          <div class="dot-red"></div><div class="dot-yel"></div><div class="dot-grn"></div>
+          &nbsp;&nbsp; react_prompt.txt
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">📋 Copiar prompt</button>
+        <a href="https://claude.ai" target="_blank" class="claude-btn">✦ Abrir Claude</a>
+      </div>
+      <div class="prompt-code" id="promptDisplay"><span class="t-sys"># ── INSTRUCCIÓN DE SISTEMA ────────────────────────────────</span>
+<span class="t-sys">Eres un agente ReAct con acceso a herramientas web y de documentos.</span>
+<span class="t-sys">SIEMPRE responde siguiendo este formato exacto, sin saltarte pasos:</span>
+
+<span class="t-comment">──────────────────────────────────────────────────────────</span>
+<span class="t-thought">Thought:</span> <span class="t-key">&lt;razona en voz alta qué necesitas buscar y por qué&gt;</span>
+<span class="t-action">Action:</span> <span class="t-key">search_web | read_url | create_document</span>
+<span class="t-ainput">Action Input:</span> <span class="t-key">&lt;parámetro concreto para la herramienta&gt;</span>
+<span class="t-obs">Observation:</span> <span class="t-key">&lt;resultado devuelto por la herramienta — lo proporciona el sistema&gt;</span>
+<span class="t-comment">... (repite Thought → Action → Observation cuantas veces necesites)</span>
+<span class="t-thought">Thought:</span> <span class="t-key">Ya tengo toda la información. Voy a crear el documento.</span>
+<span class="t-final">Final Answer:</span> <span class="t-key">&lt;confirmación de que el PDF fue creado y resumen de lo que contiene&gt;</span>
+<span class="t-comment">──────────────────────────────────────────────────────────</span>
+
+<span class="t-sys"># ── HERRAMIENTAS DISPONIBLES ──────────────────────────────</span>
+<span class="t-tool">search_web(query: str)</span>             <span class="t-comment">→ busca información actualizada en internet</span>
+<span class="t-tool">read_url(url: str)</span>                 <span class="t-comment">→ lee y extrae el contenido de una página web</span>
+<span class="t-tool">create_document(titulo, contenido)</span> <span class="t-comment">→ genera un PDF estructurado con el resultado</span>
+
+<span class="t-sys"># ── REGLAS ────────────────────────────────────────────────</span>
+<span class="t-sys">1. Nunca inventes datos — si no sabes algo, usa search_web primero.</span>
+<span class="t-sys">2. Incluye la URL fuente de cada dato que uses en el documento.</span>
+<span class="t-sys">3. No emitas Final Answer sin antes ejecutar create_document.</span>
+<span class="t-sys">4. El PDF debe tener: portada, cronograma clasificado y fuentes.</span>
+
+<span class="t-comment">──────────────────────────────────────────────────────────</span>
+<span class="t-sys"># ── TAREA ─────────────────────────────────────────────────</span>
+<span class="t-task">El Mundial FIFA 2026 acaba de comenzar. Quiero que:</span>
+<span class="t-task"></span>
+<span class="t-task">1. Busques el calendario completo de partidos del Mundial 2026</span>
+<span class="t-task">   (fechas, sedes, grupos y equipos confirmados)</span>
+<span class="t-task"></span>
+<span class="t-task">2. Clasifiques cada partido en una de estas 3 categorías:</span>
+<span class="t-task">   🔥 IMPERDIBLE    — clásicos, rivalidades, favoritos al título</span>
+<span class="t-task">   ⚡ PUEDE SORPRENDER — equipos que podrían dar la campanada</span>
+<span class="t-task">   😴 MENOS ATRACTIVO — menor interés competitivo o mediático</span>
+<span class="t-task"></span>
+<span class="t-task">3. Generes un PDF titulado "Guía del Mundial FIFA 2026" con:</span>
+<span class="t-task">   - Cronograma clasificado por categoría</span>
+<span class="t-task">   - Fecha, hora y sede de cada partido destacado</span>
+<span class="t-task">   - Breve análisis (1-2 líneas) de por qué es o no interesante</span>
+<span class="t-task">   - Sección especial: "Los 5 partidos que no te puedes perder"</span>
+<span class="t-task">   - Fuentes consultadas al final del documento</span></div>
+    </div>
+
+    <!-- Leyenda derecha -->
+    <div class="legend-panel">
+      <div class="leg-title">Qué es cada parte</div>
+
+      <div class="leg-row" style="border-left-color:var(--c-system);">
+        <div class="leg-dot" style="background:var(--c-system);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-system);">Instrucción sistema</div>
+          <div class="leg-desc">Le dice al modelo su rol y el formato obligatorio que debe seguir.</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-thought);">
+        <div class="leg-dot" style="background:var(--c-thought);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-thought);">Thought:</div>
+          <div class="leg-desc">El modelo razona en voz alta antes de actuar. Planificación explícita.</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-action);">
+        <div class="leg-dot" style="background:var(--c-action);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-action);">Action:</div>
+          <div class="leg-desc">La herramienta que elige usar para obtener info externa.</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-input);">
+        <div class="leg-dot" style="background:var(--c-input);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-input);">Action Input:</div>
+          <div class="leg-desc">El argumento exacto pasado a la herramienta (query, URL…)</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-obs);">
+        <div class="leg-dot" style="background:var(--c-obs);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-obs);">Observation:</div>
+          <div class="leg-desc">Resultado real de la herramienta. Alimenta el siguiente razonamiento.</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-final);">
+        <div class="leg-dot" style="background:var(--c-final);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-final);">Final Answer:</div>
+          <div class="leg-desc">Respuesta definitiva emitida solo después de verificar con datos reales.</div>
+        </div>
+      </div>
+
+      <div class="leg-row" style="border-left-color:var(--c-task);">
+        <div class="leg-dot" style="background:var(--c-task);"></div>
+        <div class="leg-text">
+          <div class="leg-name" style="color:var(--c-task);">Tarea del usuario</div>
+          <div class="leg-desc">Lo único que cambia entre usos. Define qué debe investigar y generar.</div>
+        </div>
+      </div>
+
+      <div class="tools-box">
+        <div class="tools-box-title">Herramientas incluidas</div>
+        <div class="tool-chip">search_web<span class="tool-desc">busca en internet</span></div>
+        <div class="tool-chip">read_url<span class="tool-desc">lee una URL</span></div>
+        <div class="tool-chip">create_document<span class="tool-desc">genera documento</span></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="footer"><span>VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar</span></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     S6 — GRACIAS
+══════════════════════════════════════════ -->
+<div class="slide" id="s-gracias">
+  <div style="width:100%;height:100%;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;position:relative;overflow:hidden;">
+
+    <!-- Decoración fondo -->
+    <div style="position:absolute;top:-10%;right:-8%;width:45%;aspect-ratio:1;border-radius:50%;background:rgba(201,160,32,.06);pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-15%;left:-10%;width:55%;aspect-ratio:1;border-radius:50%;background:rgba(201,160,32,.04);pointer-events:none;"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold);"></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--gold);"></div>
+
+    <!-- Logo -->
+    <svg style="width:clamp(52px,9vw,76px);margin-bottom:3%;display:block;" viewBox="0 0 100 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50,17 C48,12 44,9 40,9 Q36,9 33,11 Q28,13 24,11 C18,9 12,13 9,20 C6,27 6,37 8,47 C10,56 16,63 24,67 C30,70 38,71 44,68 C47,67 49,64 50,61 Z" fill="#C9A020"/>
+      <path d="M50,17 C52,12 56,9 60,9 Q64,9 67,11 Q72,13 76,11 C82,9 88,13 91,20 C94,27 94,37 92,47 C90,56 84,63 76,67 C70,70 62,71 56,68 C53,67 51,64 50,61 Z" fill="#C9A020"/>
+      <path d="M44,66 C43,71 43,77 46,79 C48,80 52,80 54,79 C57,77 57,71 56,66 Z" fill="#C9A020"/>
+      <line x1="50" y1="11" x2="50" y2="63" stroke="#071E4A" stroke-width="2.2" opacity="0.38"/>
+      <path d="M13,28 C18,23 27,24 31,29" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+      <path d="M10,41 C17,37 27,38 30,44" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+      <path d="M13,54 C19,51 28,52 31,57" stroke="#071E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.33"/>
+      <path d="M87,28 C82,23 73,24 69,29" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+      <path d="M90,41 C83,37 73,38 70,44" stroke="#071E4A" stroke-width="1.7" stroke-linecap="round" fill="none" opacity="0.38"/>
+      <path d="M87,54 C81,51 72,52 69,57" stroke="#071E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.33"/>
+    </svg>
+
+    <!-- ¡Gracias! -->
+    <div style="color:var(--white);font-size:clamp(40px,9vw,86px);font-weight:800;letter-spacing:-.02em;line-height:1;margin-bottom:1.5%;">¡Gracias!</div>
+
+    <!-- Regla dorada -->
+    <div style="width:clamp(60px,8%,90px);height:3px;background:var(--gold);margin-bottom:3%;"></div>
+
+    <!-- Subtítulo -->
+    <div style="color:rgba(255,255,255,.65);font-size:clamp(10px,1.6vw,15px);text-align:center;line-height:1.6;margin-bottom:5%;max-width:55%;">
+      <span style="color:var(--gold-light);font-weight:600;">Prompting ReAct</span> — Combinando Razonamiento y Acción en Modelos de Lenguaje.<br>
+      <span style="font-size:clamp(8px,1.2vw,12px);color:rgba(255,255,255,.4);">VerbaNexAI Lab &nbsp;·&nbsp; Universidad Tecnológica de Bolívar &nbsp;·&nbsp; 2026</span>
+    </div>
+
+    <!-- GitHub link -->
+    <a href="https://github.com/VerbaNexAI" target="_blank"
+       style="display:flex;align-items:center;gap:3%;background:rgba(255,255,255,.07);border:1.5px solid rgba(201,160,32,.5);border-radius:8px;padding:2% 5%;text-decoration:none;transition:background .15s;cursor:pointer;"
+       onmouseover="this.style.background='rgba(201,160,32,.15)'" onmouseout="this.style.background='rgba(255,255,255,.07)'">
+      <!-- GitHub icon -->
+      <svg style="width:clamp(18px,2.8vw,26px);height:clamp(18px,2.8vw,26px);flex-shrink:0;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z" fill="rgba(255,255,255,.85)"/>
+      </svg>
+      <div style="display:flex;flex-direction:column;gap:1%;">
+        <span style="color:var(--gold-light);font-size:clamp(8px,1.3vw,13px);font-weight:700;letter-spacing:.04em;">github.com/VerbaNexAI</span>
+        <span style="color:rgba(255,255,255,.4);font-size:clamp(6px,1vw,10px);">Código, prompts y recursos del canal</span>
+      </div>
+      <svg style="width:clamp(10px,1.4vw,13px);margin-left:auto;opacity:.4;" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+
+    <!-- Autor -->
+    <div style="position:absolute;bottom:4%;color:rgba(255,255,255,.3);font-size:clamp(7px,1.05vw,10px);letter-spacing:.03em;">
+      Carlos Agamez &nbsp;·&nbsp; VerbaNexAI Lab
+    </div>
+  </div>
+</div>
+
+</div><!-- /stage -->
+
+<div id="controls">
+  <button class="btn btn-home" onclick="location.href='/'" title="Volver al inicio">🏠 Inicio</button>
+  <button class="btn" id="btnPrev" onclick="navigate(-1)" disabled>← Anterior</button>
+  <span id="counter">1 / 7</span>
+  <button class="btn" id="btnNext" onclick="navigate(1)">Siguiente →</button>
+  <button class="btn btn-fs" onclick="toggleFullscreen()">⛶ Pantalla completa</button>
+</div>
+
+<!-- Botón de grabación (visible también en pantalla completa) -->
+<div id="rec-wrap">
+  <button class="btn btn-rec" id="recBtn" onclick="toggleRecording()">
+    <span class="rec-dot"></span>Grabar
+  </button>
+  <span id="rec-timer">00:00</span>
+</div>
+<div id="rec-toast"></div>
+
+<!-- Modal: elegir modo de grabación -->
+<div id="rec-modal">
+  <div class="rec-mbox">
+    <h3>¿Qué quieres grabar?</h3>
+    <p class="sub">Elige según lo que vayas a mostrar en el video</p>
+
+    <div class="rec-opt" onclick="startRec('browser')">
+      <div class="ot">📑 Solo la presentación</div>
+      <div class="od">Captura únicamente esta pestaña. Ideal si no harás demos en otras pestañas.</div>
+    </div>
+
+    <div class="rec-opt featured" onclick="startRec('window')">
+      <div class="ot">🪟 Presentación + demos &nbsp;<span style="font-size:10px;background:var(--gold);color:var(--navy-dark);padding:1px 6px;border-radius:3px;font-weight:700;">RECOMENDADO</span></div>
+      <div class="od">Captura toda la ventana del navegador. Al abrir Claude u otras pestañas, el video lo mostrará automáticamente.</div>
+    </div>
+
+    <div class="rec-opt" onclick="startRec('monitor')">
+      <div class="ot">🖥️ Pantalla completa</div>
+      <div class="od">Captura todo el monitor. Útil si usas apps fuera del navegador.</div>
+    </div>
+
+    <!-- Opción limpia: fullscreen automático -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="chk-fs" checked
+          style="width:15px;height:15px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;">
+        <div>
+          <div style="color:var(--white);font-size:12.5px;font-weight:600;">🖥 Entrar en pantalla completa antes de grabar</div>
+          <div style="color:rgba(255,255,255,.38);font-size:11px;line-height:1.4;margin-top:2px;">Oculta la barra del navegador y las pestañas. Equivale a F11 — sin necesidad de teclado.</div>
+        </div>
+      </label>
+    </div>
+
+    <button class="rec-cancel" onclick="closeRecModal()">Cancelar</button>
+  </div>
+</div>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let current  = 0;
+
+  function navigate(dir) {
+    slides[current].classList.remove('active');
+    current = Math.max(0, Math.min(total - 1, current + dir));
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${total}`;
+    document.getElementById('btnPrev').disabled = current === 0;
+    document.getElementById('btnNext').disabled = current === total - 1;
+  }
+
+  document.addEventListener('keydown', e => {
+    if      (['ArrowRight','ArrowDown',' '].includes(e.key)) { e.preventDefault(); navigate(1);  }
+    else if (['ArrowLeft', 'ArrowUp'      ].includes(e.key)) { e.preventDefault(); navigate(-1); }
+    else if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); }
+    else if (e.key === 'Escape' && document.fullscreenElement) { document.exitFullscreen(); }
+  });
+
+  function toggleFullscreen() {
+    const el = document.getElementById('viewer');
+    if (!document.fullscreenElement) el.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  }
+
+  const RAW_PROMPT = `# ── INSTRUCCIÓN DE SISTEMA ────────────────────────────────
+Eres un agente ReAct con acceso a herramientas web y de documentos.
+SIEMPRE responde siguiendo este formato exacto, sin saltarte pasos:
+
+──────────────────────────────────────────────────────────
+Thought: <razona en voz alta qué necesitas buscar y por qué>
+Action: search_web | read_url | create_document
+Action Input: <parámetro concreto para la herramienta>
+Observation: <resultado devuelto por la herramienta — lo proporciona el sistema>
+... (repite Thought → Action → Observation cuantas veces necesites)
+Thought: Ya tengo toda la información. Voy a crear el documento.
+Final Answer: <confirmación de que el PDF fue creado y resumen de lo que contiene>
+──────────────────────────────────────────────────────────
+
+# ── HERRAMIENTAS DISPONIBLES ──────────────────────────────
+search_web(query: str)              → busca información actualizada en internet
+read_url(url: str)                  → lee y extrae el contenido de una página web
+create_document(titulo, contenido)  → genera un PDF estructurado con el resultado
+
+# ── REGLAS ────────────────────────────────────────────────
+1. Nunca inventes datos — si no sabes algo, usa search_web primero.
+2. Incluye la URL fuente de cada dato que uses en el documento.
+3. No emitas Final Answer sin antes ejecutar create_document.
+4. El PDF debe tener: portada, cronograma clasificado y fuentes.
+
+──────────────────────────────────────────────────────────
+# ── TAREA ─────────────────────────────────────────────────
+El Mundial FIFA 2026 acaba de comenzar. Quiero que:
+
+1. Busques el calendario completo de partidos del Mundial 2026
+   (fechas, sedes, grupos y equipos confirmados)
+
+2. Clasifiques cada partido en una de estas 3 categorías:
+   🔥 IMPERDIBLE       — clásicos, rivalidades, favoritos al título
+   ⚡ PUEDE SORPRENDER — equipos que podrían dar la campanada
+   😴 MENOS ATRACTIVO  — menor interés competitivo o mediático
+
+3. Generes un PDF titulado "Guía del Mundial FIFA 2026" con:
+   - Cronograma clasificado por categoría
+   - Fecha, hora y sede de cada partido destacado
+   - Breve análisis (1-2 líneas) de por qué es o no interesante
+   - Sección especial: "Los 5 partidos que no te puedes perder"
+   - Fuentes consultadas al final del documento`;
+
+  function copyPrompt() {
+    navigator.clipboard.writeText(RAW_PROMPT).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✓ Copiado!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 Copiar prompt'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // ── GRABACIÓN DE PANTALLA ────────────────────────────────
+  let _mr = null, _chunks = [], _recTick = null, _recSecs = 0;
+
+  function toggleRecording() {
+    if (_mr && _mr.state !== 'inactive') { stopRec(); return; }
+    // Abrir modal de selección de modo
+    document.getElementById('rec-modal').classList.add('open');
+  }
+
+  function closeRecModal() {
+    document.getElementById('rec-modal').classList.remove('open');
+  }
+
+  async function startRec(surface) {
+    const wantFs = document.getElementById('chk-fs').checked;
+    closeRecModal();
+
+    // Entrar en fullscreen real del documento (oculta barra y pestañas del navegador)
+    if (wantFs && !document.fullscreenElement) {
+      try { await document.documentElement.requestFullscreen(); }
+      catch(_) { /* permiso denegado o ya en fullscreen: continuar */ }
+    }
+
+    try {
+      // Captura de pantalla según el modo elegido
+      const screen = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30, displaySurface: surface },
+        audio: true
+      });
+
+      // 2. Micrófono
+      let micTracks = [];
+      try {
+        const mic = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation:true, noiseSuppression:true, sampleRate:44100 },
+          video: false
+        });
+        micTracks = mic.getAudioTracks();
+      } catch(_) { /* sin mic: continúa igual */ }
+
+      // 3. Combinar pistas
+      const combined = new MediaStream([
+        ...screen.getVideoTracks(),
+        ...screen.getAudioTracks(),
+        ...micTracks
+      ]);
+
+      const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']
+        .find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+      _mr = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 3_000_000 });
+      _chunks = [];
+
+      _mr.ondataavailable = e => { if (e.data.size > 0) _chunks.push(e.data); };
+      _mr.onstop = () => {
+        combined.getTracks().forEach(t => t.stop());
+        saveRec(new Blob(_chunks, { type: mime }), mime);
+      };
+
+      _mr.start(1000);
+
+      // Si el usuario detiene el compartir desde el navegador
+      screen.getVideoTracks()[0].onended = stopRec;
+
+      // Timer
+      _recSecs = 0;
+      const timerEl = document.getElementById('rec-timer');
+      timerEl.style.display = 'inline';
+      _recTick = setInterval(() => {
+        _recSecs++;
+        const m = String(Math.floor(_recSecs / 60)).padStart(2, '0');
+        const s = String(_recSecs % 60).padStart(2, '0');
+        timerEl.textContent = `${m}:${s}`;
+      }, 1000);
+
+      const btn = document.getElementById('recBtn');
+      btn.classList.add('recording');
+      btn.innerHTML = '<span class="rec-dot"></span>Detener';
+
+    } catch(e) {
+      if (e.name !== 'NotAllowedError') showToast('Error: ' + e.message, true);
+    }
+  }
+
+  function stopRec() {
+    if (_mr && _mr.state !== 'inactive') _mr.stop();
+    clearInterval(_recTick);
+    document.getElementById('rec-timer').style.display = 'none';
+    const btn = document.getElementById('recBtn');
+    btn.classList.remove('recording');
+    btn.innerHTML = '<span class="rec-dot"></span>Grabar';
+    _mr = null;
+  }
+
+  async function saveRec(blob, mime) {
+    const ext    = mime.includes('mp4') ? '.mp4' : '.webm';
+    const ts     = new Date().toISOString().slice(0,19).replace(/[T:]/g, '-');
+    // Detectar carpeta desde la URL: http://localhost:3000/react-prompting/ → "react-prompting"
+    const folder = window.location.pathname.split('/').filter(Boolean)[0] || 'presentacion';
+    const name   = `${folder}-${ts}${ext}`;
+
+    // 1. Servidor central → guarda en <folder>/media/ automáticamente
+    try {
+      const params = new URLSearchParams({ folder, name });
+      const res = await fetch(`/save-recording?${params}`, {
+        method : 'POST',
+        headers: { 'Content-Type': mime },
+        body   : blob
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`✓ Guardado en ${data.folder}/media/${data.saved}`);
+        return;
+      }
+    } catch(_) {
+      // Servidor no activo → continuar con fallback
+    }
+
+    // 2. Fallback: diálogo de guardar (File System Access API)
+    if ('showSaveFilePicker' in window) {
+      try {
+        const fh = await window.showSaveFilePicker({
+          suggestedName: name,
+          types: [{ description: 'Video WebM', accept: { [mime.split(';')[0]]: [ext] } }]
+        });
+        const w = await fh.createWritable();
+        await w.write(blob);
+        await w.close();
+        showToast('✓ Video guardado');
+        return;
+      } catch(e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+
+    // 3. Último recurso: descarga del navegador
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(u), 10000);
+    showToast('✓ Video descargado');
+  }
+
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('rec-toast');
+    t.textContent = msg;
+    t.classList.toggle('error', isError);
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>

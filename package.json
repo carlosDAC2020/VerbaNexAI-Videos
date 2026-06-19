@@ -1,0 +1,16 @@
+{
+  "name": "verbanexai-videos",
+  "version": "1.0.0",
+  "description": "Presentaciones interactivas sobre Inteligencia Artificial — VerbaNexAI Lab",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "nueva": "node scripts/crear-presentacion.js"
+  },
+  "author": "Carlos Agamez <oruz2019@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["ia", "nlp", "prompting", "presentaciones", "verbanexai"]
+}
